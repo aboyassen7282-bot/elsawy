@@ -29,6 +29,7 @@ export interface StoreSettings {
   logoUrl?: string;
   bannerUrl?: string;
   categories?: string[];
+  adminPin?: string; // أضيف لحفظ وتحديث الرقم السري للوحة التحكم
 }
 
 export interface OrderDetails {
@@ -38,4 +39,25 @@ export interface OrderDetails {
   city: string;
   notes?: string;
   paymentMethod: 'cod';
+}
+
+export interface StoredOrder {
+  id: string;
+  orderNumber: string;
+  customerName: string;
+  phone: string;
+  address: string;
+  city: string;
+  notes?: string;
+  items: Array<{
+    productName: string;
+    quantity: number;
+    price: number;
+  }>;
+  subtotal: number;
+  shippingFee: number;
+  total: number;
+  status: 'new' | 'processing' | 'delivered' | 'cancelled';
+  paymentMethod: string;
+  createdAt: string;
 }

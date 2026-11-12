@@ -27,7 +27,7 @@ import {
 import { Product, StoreSettings, StoredOrder } from '../types';
 import { INITIAL_CATEGORIES } from '../data/defaultProducts';
 import { ImagePickerField } from './ImagePickerField';
-import { supabase } from '../lib/supabaseClient'; // تأكد من أن مسار ملف supabaseClient صحيح في مشروعك
+import { supabase } from src/lib/supabaseClient'; 
 
 interface AdminPortalProps {
   settings: StoreSettings;
