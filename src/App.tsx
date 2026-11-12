@@ -531,9 +531,9 @@ export default function App() {
               <h2 className="text-xl sm:text-2xl font-black text-stone-900 dark:text-white">
                 قائمة المنتجات المميزة
               </h2>
-              <p className="text-xs sm:text-sm text-stone-500 mt-0.5">
+              {/* <p className="text-xs sm:text-sm text-stone-500 mt-0.5">
                 تصفح المنتجات المتوفرة واضغط "أضف للسلة" أو "اتصال" للشراء الفوري
-              </p>
+              </p> */}
             </div>
 
             <div className="relative w-full sm:w-72">

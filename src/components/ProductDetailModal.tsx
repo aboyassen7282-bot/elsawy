@@ -185,7 +185,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                 [ أضف للسلة ] و [ زر اتصال ]
               */}
               <div className="grid grid-cols-2 gap-3">
-                <button
+                {/* <button
                   onClick={() => {
                     onAddToCart(product, quantity);
                     onClose();
@@ -195,7 +195,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                 >
                   <ShoppingCart className="w-4 h-4" />
                   <span>أضف للسلة</span>
-                </button>
+                </button> */}
 
                 <a
                   href={`tel:${phoneNumber}`}
