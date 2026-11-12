@@ -1,0 +1,6 @@
+{
+  "name": "ELSAWY STORE للكمبيوتر واللاب توب وأنظمة المراقبة",
+  "description": "متجر ELSAWY STORE المتخصص في أجهزة الكمبيوتر واللاب توب وأنظمة المراقبة مع الشراء المباشر والاتصال الفوري ومشاركة الرابط على جميع المتصفحات",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
