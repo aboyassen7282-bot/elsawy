@@ -117,7 +117,7 @@ export const Header: React.FC<HeaderProps> = ({
           </button>
 
           {/* Cart Trigger */}
-          <button
+          {/* <button
             onClick={onOpenCart}
             className="relative flex items-center justify-center p-2.5 rounded-lg bg-stone-900 text-white dark:bg-white dark:text-stone-900 hover:bg-stone-800 dark:hover:bg-stone-100 transition-all cursor-pointer shadow-sm"
             aria-label="سلة المشتريات"
@@ -128,7 +128,7 @@ export const Header: React.FC<HeaderProps> = ({
                 {cartCount}
               </span>
             )}
-          </button>
+          </button> */}
         </div>
       </div>
     </header>
