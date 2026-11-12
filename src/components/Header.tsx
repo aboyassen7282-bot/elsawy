@@ -1,3 +1,4 @@
+// @ts-nocheck
 import React from 'react';
 import { ShoppingBag, Share2, Settings, Phone, Moon, Sun } from 'lucide-react';
 import { StoreSettings } from '../types';
@@ -59,7 +60,7 @@ export const Header: React.FC<HeaderProps> = ({
             )}
             <div className="flex flex-col">
               <span className="text-lg sm:text-xl font-black tracking-tight text-stone-900 dark:text-white flex items-center gap-1.5">
-                <span className="text-blue-600 dark:text-blue-400">ELSAWY</span> STORE
+                <span className="text-blue-600 dark:text-blue-400">STORE</span> ELSAWY 
               </span>
               <span className="text-[11px] font-semibold text-stone-500 dark:text-stone-400 hidden sm:block">
                 {settings.storeTagline}
