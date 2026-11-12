@@ -435,7 +435,7 @@ export default function App() {
                 title="مشاركة رابط يفتح على أي متصفح"
               >
                 <Share2 className="w-4 h-4" />
-                <span>مشاركة الرابط</span>
+                {/* <span>مشاركة الرابط</span> */}
               </button>
             </div>
           </div>
