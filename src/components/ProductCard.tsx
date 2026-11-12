@@ -145,7 +145,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           */}
           <div className="grid grid-cols-2 gap-2">
             {/* Add to Cart Button */}
-            <button
+            {/* <button
               onClick={() => onAddToCart(product)}
               disabled={!product.inStock}
               className={`flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer shadow-xs ${
@@ -156,7 +156,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
             >
               <ShoppingCart className="w-4 h-4 shrink-0" />
               <span className="truncate">أضف للسلة</span>
-            </button>
+            </button> */}
 
             {/* Direct Phone Call Button (Requirement: جنب اضف للسلة زر اتصال) */}
             <a
