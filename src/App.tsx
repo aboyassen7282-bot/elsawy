@@ -23,24 +23,8 @@ import { CheckoutModal } from './components/CheckoutModal';
 import { ShareLinkModal } from './components/ShareLinkModal';
 import { AdminPortal } from './components/AdminPortal';
 
-// Keep the storefront usable when no Supabase client is configured.
-const supabase = {
-  from: (_table: string): any => {
-    let query: any;
-    query = {
-      select: () => query,
-      eq: () => query,
-      single: () => query,
-      order: () => query,
-      insert: () => query,
-      update: () => query,
-      delete: () => query,
-      then: (resolve: (result: { data: null; error: null }) => unknown, reject?: (reason: unknown) => unknown) =>
-        Promise.resolve({ data: null, error: null }).then(resolve, reject),
-    };
-    return query;
-  },
-};
+// استيراد عميل Supabase الحقيقي من المسار الصحيح
+import { supabase } from './lib/supabaseClient';
 
 const STORAGE_KEY_CART = 'elsawy_store_cart_v2';
 const STORAGE_KEY_THEME = 'elsawy_store_theme_v2';
@@ -74,11 +58,11 @@ export default function App() {
   // Orders state
   const [orders, setOrders] = useState<StoredOrder[]>([]);
 
-  // جلب البيانات من Supabase فور تشغيل التطبيق
+  // جلب البيانات الحقيقية من Supabase فور تشغيل التطبيق
   useEffect(() => {
     async function fetchSupabaseData() {
       try {
-        // 1. جلب المنتجات
+        // 1. جلب المنتجات من جدول products
         const { data: dbProducts, error: prodError } = await supabase.from('products').select('*');
         if (dbProducts && dbProducts.length > 0 && !prodError) {
           const mappedProducts: Product[] = dbProducts.map((p: any) => ({
@@ -98,7 +82,7 @@ export default function App() {
           setProducts(mappedProducts);
         }
 
-        // 2. جلب إعدادات المتجر
+        // 2. جلب إعدادات المتجر من جدول store_settings
         const { data: dbSettings, error: setsError } = await supabase
           .from('store_settings')
           .select('*')
@@ -116,11 +100,11 @@ export default function App() {
             logoUrl: dbSettings.logo_url || INITIAL_STORE_SETTINGS.logoUrl,
             bannerUrl: dbSettings.banner_url || INITIAL_STORE_SETTINGS.bannerUrl,
             categories: dbSettings.categories || INITIAL_CATEGORIES,
-            adminPin: dbSettings.admin_pin || '1982',
+            adminPin: dbSettings.admin_pin || '1234',
           });
         }
 
-        // 3. جلب الطلبات الواردة
+        // 3. جلب الطلبات الواردة من جدول stored_orders
         const { data: dbOrders, error: ordError } = await supabase
           .from('stored_orders')
           .select('*')
