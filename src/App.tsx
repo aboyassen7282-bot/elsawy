@@ -281,6 +281,16 @@ export default function App() {
     showToast('تمت استعادة الإعدادات والمنتجات الافتراضية');
   };
 
+  const handleSaveSettings = (newSettings: StoreSettings) => {
+    setSettings(newSettings);
+    showToast('تم حفظ إعدادات المتجر');
+  };
+
+  const handleSaveProducts = (newProducts: Product[]) => {
+    setProducts(newProducts);
+    showToast('تم حفظ تعديلات المنتجات');
+  };
+
   /* 
     ================================================================
     RENDER ROUTE 1: DEDICATED ADMIN PORTAL (#admin)
@@ -296,14 +306,8 @@ export default function App() {
         onLogin={handleAdminLogin}
         onLogout={handleAdminLogout}
         onBackToStore={navigateToStore}
-        onSaveSettings={(newSettings) => {
-          setSettings(newSettings);
-          showToast('تم حفظ إعدادات المتجر');
-        }}
-        onSaveProducts={(newProducts) => {
-          setProducts(newProducts);
-          showToast('تم حفظ تعديلات المنتجات');
-        }}
+        onSaveSettings={handleSaveSettings}
+        onSaveProducts={handleSaveProducts}
         onUpdateOrderStatus={handleUpdateOrderStatus}
         onDeleteOrder={handleDeleteOrder}
         onResetDefaults={handleResetDefaults}

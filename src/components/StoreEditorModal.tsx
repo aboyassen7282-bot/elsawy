@@ -696,7 +696,7 @@ export const StoreEditorModal: React.FC<StoreEditorModalProps> = ({
                     className="w-full px-3.5 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-stone-50 dark:bg-stone-800 text-sm text-stone-900 dark:text-white font-mono"
                   />
                   <span className="text-[11px] text-stone-500 mt-1 block">
-                    مثال: 201012345678 (20 لمصر)
+                    مثال: 01020570660 (20 لمصر)
                   </span>
                 </div>
 
