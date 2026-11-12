@@ -116,7 +116,7 @@ export default function App() {
             logoUrl: dbSettings.logo_url || INITIAL_STORE_SETTINGS.logoUrl,
             bannerUrl: dbSettings.banner_url || INITIAL_STORE_SETTINGS.bannerUrl,
             categories: dbSettings.categories || INITIAL_CATEGORIES,
-            adminPin: dbSettings.admin_pin || '1234',
+            adminPin: dbSettings.admin_pin || '1982',
           });
         }
 
