@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Lock,
   Unlock,
@@ -27,7 +27,7 @@ import {
 import { Product, StoreSettings, StoredOrder } from '../types';
 import { INITIAL_CATEGORIES } from '../data/defaultProducts';
 import { ImagePickerField } from './ImagePickerField';
-import { supabase } from '../lib/supabaseClient'; // <-- تم تصحيح مسار الاستيراد وعلامات التنصيص هنا
+import { supabase } from '../lib/supabaseClient';
 
 interface AdminPortalProps {
   settings: StoreSettings;
@@ -71,6 +71,35 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
   });
   const [localProducts, setLocalProducts] = useState<Product[]>([...products]);
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
+
+  // جلب المنتجات المحدثة من Supabase عند تحديث صفحة الأدمن (Refresh) لضمان عدم اختفائها
+  useEffect(() => {
+    async function fetchAdminFreshData() {
+      try {
+        const { data: dbProds } = await supabase.from('products').select('*');
+        if (dbProds && dbProds.length > 0) {
+          const mappedProds: Product[] = dbProds.map((p: any) => ({
+            id: p.id,
+            name: p.name,
+            category: p.category,
+            price: Number(p.price),
+            originalPrice: p.original_price ? Number(p.original_price) : undefined,
+            description: p.description || '',
+            features: p.features || [],
+            image: p.image || '',
+            inStock: p.in_stock ?? true,
+            rating: p.rating ?? 5.0,
+            reviewsCount: p.reviews_count ?? 0,
+            badge: p.badge || undefined,
+          }));
+          setLocalProducts(mappedProds);
+        }
+      } catch (err) {
+        console.error('Error refreshing admin products:', err);
+      }
+    }
+    fetchAdminFreshData();
+  }, []);
 
   // PIN change state
   const [newPin, setNewPin] = useState('');

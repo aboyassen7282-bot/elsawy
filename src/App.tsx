@@ -104,29 +104,43 @@ export default function App() {
           });
         }
 
-        // 3. جلب الطلبات الواردة من جدول stored_orders
+        // 3. جلب الطلبات الواردة من جدول orders وتفاصيلها من order_items
         const { data: dbOrders, error: ordError } = await supabase
-          .from('stored_orders')
+          .from('orders')
           .select('*')
           .order('created_at', { ascending: false });
+
         if (dbOrders && !ordError) {
-          const mappedOrders: StoredOrder[] = dbOrders.map((o: any) => ({
-            id: o.id,
-            orderNumber: o.order_number || o.id,
-            customerName: o.customer_name,
-            phone: o.phone,
-            address: o.address,
-            city: o.city,
-            notes: o.notes || '',
-            items: o.items || [],
-            subtotal: Number(o.subtotal) || Number(o.total_amount) || 0,
-            shippingFee: Number(o.shipping_fee) || 0,
-            total: Number(o.total_amount) || Number(o.total) || 0,
-            status: o.status || 'new',
-            paymentMethod: o.payment_method || 'cod',
-            createdAt: o.created_at || new Date().toISOString(),
-          }));
-          setOrders(mappedOrders);
+          const ordersWithItems = await Promise.all(
+            dbOrders.map(async (o: any) => {
+              const { data: itemsData } = await supabase
+                .from('order_items')
+                .select('*')
+                .eq('order_id', o.id);
+
+              return {
+                id: o.id,
+                orderNumber: o.order_number,
+                customerName: o.customer_name,
+                phone: o.phone,
+                address: o.address,
+                city: o.city,
+                notes: o.notes || '',
+                items: (itemsData || []).map((i: any) => ({
+                  productName: i.product_name,
+                  quantity: i.quantity,
+                  price: Number(i.price),
+                })),
+                subtotal: Number(o.subtotal) || 0,
+                shippingFee: Number(o.shipping_fee) || 0,
+                total: Number(o.total) || 0,
+                status: o.status,
+                paymentMethod: o.payment_method,
+                createdAt: o.created_at,
+              };
+            })
+          );
+          setOrders(ordersWithItems);
         }
       } catch (err) {
         console.error('Error fetching data from Supabase:', err);
@@ -171,7 +185,7 @@ export default function App() {
     setIsAdminRoute(true);
   };
 
-  const navigateToStore = () => {
+    const navigateToStore = () => {
     window.location.hash = '';
     setIsAdminRoute(false);
   };
@@ -299,10 +313,11 @@ export default function App() {
     setCart([]);
   };
 
+  // حفظ الطلب في جدول orders و order_items
   const handleSaveOrder = async (newOrder: StoredOrder) => {
     setOrders((prev) => [newOrder, ...prev]);
     try {
-      await supabase.from('stored_orders').insert([
+      const { error: orderError } = await supabase.from('orders').insert([
         {
           id: newOrder.id,
           order_number: newOrder.orderNumber,
@@ -311,11 +326,24 @@ export default function App() {
           address: newOrder.address,
           city: newOrder.city,
           notes: newOrder.notes,
-          items: newOrder.items,
-          total_amount: newOrder.total,
+          subtotal: newOrder.subtotal,
+          shipping_fee: newOrder.shippingFee,
+          total: newOrder.total,
           status: newOrder.status,
+          payment_method: newOrder.paymentMethod,
         },
       ]);
+
+      if (!orderError && newOrder.items && newOrder.items.length > 0) {
+        const itemsPayload = newOrder.items.map((item) => ({
+          order_id: newOrder.id,
+          product_name: item.productName,
+          price: item.price,
+          quantity: item.quantity,
+          total_price: item.price * item.quantity,
+        }));
+        await supabase.from('order_items').insert(itemsPayload);
+      }
     } catch (err) {
       console.error('Error saving order:', err);
     }
@@ -326,7 +354,7 @@ export default function App() {
       prev.map((o) => (o.id === orderId ? { ...o, status } : o))
     );
     try {
-      await supabase.from('stored_orders').update({ status }).eq('id', orderId);
+      await supabase.from('orders').update({ status }).eq('id', orderId);
     } catch (err) {
       console.error('Error updating order status:', err);
     }
@@ -336,7 +364,8 @@ export default function App() {
   const handleDeleteOrder = async (orderId: string) => {
     setOrders((prev) => prev.filter((o) => o.id !== orderId));
     try {
-      await supabase.from('stored_orders').delete().eq('id', orderId);
+      await supabase.from('order_items').delete().eq('order_id', orderId);
+      await supabase.from('orders').delete().eq('id', orderId);
     } catch (err) {
       console.error('Error deleting order:', err);
     }
@@ -531,9 +560,6 @@ export default function App() {
               <h2 className="text-xl sm:text-2xl font-black text-stone-900 dark:text-white">
                 قائمة المنتجات المميزة
               </h2>
-              {/* <p className="text-xs sm:text-sm text-stone-500 mt-0.5">
-                تصفح المنتجات المتوفرة واضغط "أضف للسلة" أو "اتصال" للشراء الفوري
-              </p> */}
             </div>
 
             <div className="relative w-full sm:w-72">
