@@ -22,12 +22,10 @@ import { CartDrawer } from './components/CartDrawer';
 import { CheckoutModal } from './components/CheckoutModal';
 import { ShareLinkModal } from './components/ShareLinkModal';
 import { AdminPortal } from './components/AdminPortal';
+import { supabase } from './lib/supabaseClient'; // تأكد من صحة مسار استيراد ملف Supabase
 
-const STORAGE_KEY_PRODUCTS = 'elsawy_store_products_v2';
-const STORAGE_KEY_SETTINGS = 'elsawy_store_settings_v2';
 const STORAGE_KEY_CART = 'elsawy_store_cart_v2';
 const STORAGE_KEY_THEME = 'elsawy_store_theme_v2';
-const STORAGE_KEY_ORDERS = 'elsawy_store_orders_v2';
 const STORAGE_KEY_ADMIN_AUTH = 'elsawy_admin_authenticated_v2';
 
 export default function App() {
@@ -39,26 +37,10 @@ export default function App() {
   });
 
   // Store settings
-  const [settings, setSettings] = useState<StoreSettings>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY_SETTINGS);
-      if (saved) return JSON.parse(saved);
-    } catch {
-      // fallback
-    }
-    return INITIAL_STORE_SETTINGS;
-  });
+  const [settings, setSettings] = useState<StoreSettings>(INITIAL_STORE_SETTINGS);
 
   // Products state
-  const [products, setProducts] = useState<Product[]>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY_PRODUCTS);
-      if (saved) return JSON.parse(saved);
-    } catch {
-      // fallback
-    }
-    return INITIAL_PRODUCTS;
-  });
+  const [products, setProducts] = useState<Product[]>(INITIAL_PRODUCTS);
 
   // Cart state
   const [cart, setCart] = useState<CartItem[]>(() => {
@@ -72,15 +54,85 @@ export default function App() {
   });
 
   // Orders state
-  const [orders, setOrders] = useState<StoredOrder[]>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY_ORDERS);
-      if (saved) return JSON.parse(saved);
-    } catch {
-      // fallback
+  const [orders, setOrders] = useState<StoredOrder[]>([]);
+
+  // جلب البيانات من Supabase فور تشغيل التطبيق
+  useEffect(() => {
+    async function fetchSupabaseData() {
+      try {
+        // 1. جلب المنتجات
+        const { data: dbProducts, error: prodError } = await supabase.from('products').select('*');
+        if (dbProducts && dbProducts.length > 0 && !prodError) {
+          const mappedProducts: Product[] = dbProducts.map((p: any) => ({
+            id: p.id,
+            name: p.name,
+            category: p.category,
+            price: Number(p.price),
+            originalPrice: p.original_price ? Number(p.original_price) : undefined,
+            description: p.description || '',
+            features: p.features || [],
+            image: p.image || '',
+            inStock: p.in_stock ?? true,
+            rating: p.rating ?? 5.0,
+            reviewsCount: p.reviews_count ?? 0,
+            badge: p.badge || undefined,
+          }));
+          setProducts(mappedProducts);
+        }
+
+        // 2. جلب إعدادات المتجر
+        const { data: dbSettings, error: setsError } = await supabase
+          .from('store_settings')
+          .select('*')
+          .eq('id', 1)
+          .single();
+        if (dbSettings && !setsError) {
+          setSettings({
+            storeName: dbSettings.store_name || INITIAL_STORE_SETTINGS.storeName,
+            storeTagline: dbSettings.store_tagline || INITIAL_STORE_SETTINGS.storeTagline,
+            announcement: dbSettings.announcement || INITIAL_STORE_SETTINGS.announcement,
+            phoneNumber: dbSettings.phone_number || INITIAL_STORE_SETTINGS.phoneNumber,
+            whatsappNumber: dbSettings.whatsapp_number || INITIAL_STORE_SETTINGS.whatsappNumber,
+            currency: dbSettings.currency || INITIAL_STORE_SETTINGS.currency,
+            freeShippingThreshold: Number(dbSettings.free_shipping_threshold) || 1000,
+            logoUrl: dbSettings.logo_url || INITIAL_STORE_SETTINGS.logoUrl,
+            bannerUrl: dbSettings.banner_url || INITIAL_STORE_SETTINGS.bannerUrl,
+            categories: dbSettings.categories || INITIAL_CATEGORIES,
+            adminPin: dbSettings.admin_pin || '1234',
+          });
+        }
+
+        // 3. جلب الطلبات الواردة
+        const { data: dbOrders, error: ordError } = await supabase
+          .from('stored_orders')
+          .select('*')
+          .order('created_at', { ascending: false });
+        if (dbOrders && !ordError) {
+          const mappedOrders: StoredOrder[] = dbOrders.map((o: any) => ({
+            id: o.id,
+            orderNumber: o.order_number || o.id,
+            customerName: o.customer_name,
+            phone: o.phone,
+            address: o.address,
+            city: o.city,
+            notes: o.notes || '',
+            items: o.items || [],
+            subtotal: Number(o.subtotal) || Number(o.total_amount) || 0,
+            shippingFee: Number(o.shipping_fee) || 0,
+            total: Number(o.total_amount) || Number(o.total) || 0,
+            status: o.status || 'new',
+            paymentMethod: o.payment_method || 'cod',
+            createdAt: o.created_at || new Date().toISOString(),
+          }));
+          setOrders(mappedOrders);
+        }
+      } catch (err) {
+        console.error('Error fetching data from Supabase:', err);
+      }
     }
-    return [];
-  });
+
+    fetchSupabaseData();
+  }, []);
 
   // Dedicated Admin Route & Authentication
   const checkIsAdminRoute = () => {
@@ -99,7 +151,7 @@ export default function App() {
     return sessionStorage.getItem(STORAGE_KEY_ADMIN_AUTH) === 'true';
   });
 
-  // Listen to browser hash changes (e.g. typing #admin or navigating back)
+  // Listen to browser hash changes
   useEffect(() => {
     const handleHashOrPopState = () => {
       setIsAdminRoute(checkIsAdminRoute());
@@ -123,7 +175,7 @@ export default function App() {
   };
 
   const handleAdminLogin = (pin: string): boolean => {
-    const validPin = settings.adminPin || '1982';
+    const validPin = settings.adminPin || '1234';
     if (pin.trim() === validPin.trim()) {
       setIsAdminAuthenticated(true);
       sessionStorage.setItem(STORAGE_KEY_ADMIN_AUTH, 'true');
@@ -170,22 +222,10 @@ export default function App() {
     }
   }, [darkMode]);
 
-  // Persist products, settings, cart & orders to localStorage
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEY_PRODUCTS, JSON.stringify(products));
-  }, [products]);
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEY_SETTINGS, JSON.stringify(settings));
-  }, [settings]);
-
+  // Persist cart to localStorage
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY_CART, JSON.stringify(cart));
   }, [cart]);
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEY_ORDERS, JSON.stringify(orders));
-  }, [orders]);
 
   // Categories list from store settings
   const categories = useMemo(() => {
@@ -257,19 +297,47 @@ export default function App() {
     setCart([]);
   };
 
-  const handleSaveOrder = (newOrder: StoredOrder) => {
+  const handleSaveOrder = async (newOrder: StoredOrder) => {
     setOrders((prev) => [newOrder, ...prev]);
+    try {
+      await supabase.from('stored_orders').insert([
+        {
+          id: newOrder.id,
+          order_number: newOrder.orderNumber,
+          customer_name: newOrder.customerName,
+          phone: newOrder.phone,
+          address: newOrder.address,
+          city: newOrder.city,
+          notes: newOrder.notes,
+          items: newOrder.items,
+          total_amount: newOrder.total,
+          status: newOrder.status,
+        },
+      ]);
+    } catch (err) {
+      console.error('Error saving order:', err);
+    }
   };
 
-  const handleUpdateOrderStatus = (orderId: string, status: StoredOrder['status']) => {
+  const handleUpdateOrderStatus = async (orderId: string, status: StoredOrder['status']) => {
     setOrders((prev) =>
       prev.map((o) => (o.id === orderId ? { ...o, status } : o))
     );
+    try {
+      await supabase.from('stored_orders').update({ status }).eq('id', orderId);
+    } catch (err) {
+      console.error('Error updating order status:', err);
+    }
     showToast('تم تحديث حالة الطلب');
   };
 
-  const handleDeleteOrder = (orderId: string) => {
+  const handleDeleteOrder = async (orderId: string) => {
     setOrders((prev) => prev.filter((o) => o.id !== orderId));
+    try {
+      await supabase.from('stored_orders').delete().eq('id', orderId);
+    } catch (err) {
+      console.error('Error deleting order:', err);
+    }
     showToast('تم حذف الطلب');
   };
 
@@ -318,7 +386,6 @@ export default function App() {
   /* 
     ================================================================
     RENDER ROUTE 2: PUBLIC CUSTOMER STOREFRONT
-    Customers see ONLY customer-facing features (no admin buttons).
     ================================================================
   */
   return (
@@ -331,7 +398,7 @@ export default function App() {
         </div>
       )}
 
-      {/* Admin Logged-In Top Helper Bar (shown ONLY if admin is authenticated) */}
+      {/* Admin Logged-In Top Helper Bar */}
       {isAdminAuthenticated && (
         <div className="bg-blue-600 text-white text-xs py-2 px-4 border-b border-blue-700">
           <div className="max-w-7xl mx-auto flex items-center justify-between">
@@ -370,10 +437,9 @@ export default function App() {
         onToggleDarkMode={() => setDarkMode(!darkMode)}
       />
 
-      {/* Hero Banner with Official Visual Asset & Direct Contact */}
+      {/* Hero Banner */}
       <section className="relative overflow-hidden bg-gradient-to-b from-stone-900 via-stone-900 to-stone-950 text-white pt-6 pb-10 border-b border-stone-800">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          {/* Main Visual Banner Frame */}
           <div className="relative rounded-3xl overflow-hidden border border-blue-500/30 shadow-2xl bg-black group mb-8">
             <img
               src={settings.bannerUrl || '/assets/aistudio/elsawy_store_d8c513ab.png'}
@@ -382,7 +448,6 @@ export default function App() {
             />
           </div>
 
-          {/* Brand Info & Action Bar */}
           <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6 bg-stone-800/70 backdrop-blur-md p-6 sm:p-8 rounded-3xl border border-stone-700/60 shadow-lg">
             <div className="flex items-center gap-4 sm:gap-5">
               {settings.logoUrl && (
@@ -406,9 +471,7 @@ export default function App() {
               </div>
             </div>
 
-            {/* Quick Hero Actions */}
             <div className="flex flex-wrap items-center gap-2.5 sm:gap-3 w-full lg:w-auto shrink-0">
-              {/* Call Now Hero CTA */}
               <a
                 href={`tel:${settings.phoneNumber}`}
                 className="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs sm:text-sm shadow-md transition-all active:scale-98 cursor-pointer"
@@ -417,7 +480,6 @@ export default function App() {
                 <span>اتصل بنا للطلب ({settings.phoneNumber})</span>
               </a>
 
-              {/* WhatsApp Quick Chat */}
               <a
                 href={`https://wa.me/${settings.whatsappNumber}`}
                 target="_blank"
@@ -428,19 +490,16 @@ export default function App() {
                 <span>واتساب</span>
               </a>
 
-              {/* Share Store Link */}
               <button
                 onClick={() => setIsShareOpen(true)}
                 className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 border border-blue-500/30 font-semibold text-xs transition-all cursor-pointer"
-                title="مشاركة رابط يفتح على أي متصفح"
+                title="مشاركة الرابط"
               >
                 <Share2 className="w-4 h-4" />
-                {/* <span>مشاركة الرابط</span> */}
               </button>
             </div>
           </div>
 
-          {/* Trust strip matching banner icons */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4 pt-2">
             <div className="flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl bg-stone-800/40 border border-stone-700/50 text-xs text-stone-300">
               <ShieldCheck className="w-4 h-4 text-blue-400 shrink-0" />
@@ -464,7 +523,6 @@ export default function App() {
 
       {/* Main Products Section */}
       <main id="products" className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 w-full">
-        {/* Search, Filter & Sort Controls */}
         <div className="mb-8 space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
@@ -476,7 +534,6 @@ export default function App() {
               </p>
             </div>
 
-            {/* Live Search Input */}
             <div className="relative w-full sm:w-72">
               <input
                 type="text"
@@ -489,7 +546,6 @@ export default function App() {
             </div>
           </div>
 
-          {/* Categories Segmented Control & Sort */}
           <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
             <div className="flex items-center gap-1.5 overflow-x-auto pb-1 max-w-full">
               <button
@@ -519,7 +575,6 @@ export default function App() {
                 );
               })}
 
-              {/* Admin shortcut button (shown ONLY if logged in as Admin) */}
               {isAdminAuthenticated && (
                 <button
                   onClick={navigateToAdmin}
@@ -532,7 +587,6 @@ export default function App() {
               )}
             </div>
 
-            {/* Sort Dropdown */}
             <div className="flex items-center gap-1.5 text-xs text-stone-500 shrink-0">
               <SlidersHorizontal className="w-3.5 h-3.5" />
               <span>ترتيب حسب:</span>
@@ -549,7 +603,6 @@ export default function App() {
           </div>
         </div>
 
-        {/* Product Grid */}
         {filteredProducts.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {filteredProducts.map((product) => (
@@ -583,53 +636,6 @@ export default function App() {
             </button>
           </div>
         )}
-
-        {/* Store Trust / Guarantees Section */}
-        <section id="features" className="mt-16 pt-12 border-t border-stone-200 dark:border-stone-800">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-            <div className="p-6 rounded-2xl bg-white dark:bg-stone-900 border border-stone-200/80 dark:border-stone-800 flex items-start gap-4">
-              <div className="p-3 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 shrink-0">
-                <Truck className="w-6 h-6" />
-              </div>
-              <div>
-                <h4 className="text-base font-bold text-stone-900 dark:text-white mb-1">
-                  شحن سريع وتوصيل للمنزل
-                </h4>
-                <p className="text-xs text-stone-500 leading-relaxed">
-                  توصيل لجميع المحافظات خلال 24 إلى 48 ساعة مع إمكانية معاينة الجهاز وتشغيله قبل الاستلام.
-                </p>
-              </div>
-            </div>
-
-            <div className="p-6 rounded-2xl bg-white dark:bg-stone-900 border border-stone-200/80 dark:border-stone-800 flex items-start gap-4">
-              <div className="p-3 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 shrink-0">
-                <ShieldCheck className="w-6 h-6" />
-              </div>
-              <div>
-                <h4 className="text-base font-bold text-stone-900 dark:text-white mb-1">
-                  ضمان معتمد وفرز أول
-                </h4>
-                <p className="text-xs text-stone-500 leading-relaxed">
-                  جميع الأجهزة وكاميرات المراقبة أصلية 100% ومفحوصة بدقة مع شهادة ضمان معتمدة.
-                </p>
-              </div>
-            </div>
-
-            <div className="p-6 rounded-2xl bg-white dark:bg-stone-900 border border-stone-200/80 dark:border-stone-800 flex items-start gap-4">
-              <div className="p-3 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 shrink-0">
-                <RotateCcw className="w-6 h-6" />
-              </div>
-              <div>
-                <h4 className="text-base font-bold text-stone-900 dark:text-white mb-1">
-                  خدمة ما بعد البيع والدعم الفني
-                </h4>
-                <p className="text-xs text-stone-500 leading-relaxed">
-                  فريق فني متخصص جاهز دائماً لمساعدتك في التثبيت والتشغيل وتوصيل الكاميرات والشبكات.
-                </p>
-              </div>
-            </div>
-          </div>
-        </section>
       </main>
 
       {/* Footer */}
@@ -654,7 +660,6 @@ export default function App() {
               </div>
             </div>
 
-            {/* Contact numbers and share */}
             <div className="flex flex-wrap items-center justify-center gap-3">
               <a
                 href={`tel:${settings.phoneNumber}`}
@@ -673,21 +678,12 @@ export default function App() {
                 <MessageCircle className="w-3.5 h-3.5" />
                 <span>واتساب المتجر</span>
               </a>
-
-              <button
-                onClick={() => setIsShareOpen(true)}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 font-semibold text-xs hover:bg-stone-200 cursor-pointer"
-              >
-                <Share2 className="w-3.5 h-3.5 text-amber-500" />
-                <span>مشاركة الرابط</span>
-              </button>
             </div>
           </div>
 
           <div className="mt-8 pt-6 border-t border-stone-100 dark:border-stone-800 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-stone-400">
             <span>جميع الحقوق محفوظة © {new Date().getFullYear()} {settings.storeName}</span>
             <div className="flex items-center gap-4">
-              {/* Discreet Admin Login Link for the store owner */}
               <button
                 onClick={navigateToAdmin}
                 className="hover:text-blue-500 transition-colors cursor-pointer flex items-center gap-1.5 text-stone-400 hover:text-stone-600 dark:hover:text-stone-200"
@@ -696,10 +692,6 @@ export default function App() {
                 <Lock className="w-3.5 h-3.5" />
                 <span>دخول الإدارة</span>
               </button>
-              <span>·</span>
-              <a href="#" className="hover:text-blue-500 transition-colors">الشروط والأحكام</a>
-              <span>·</span>
-              <a href="#" className="hover:text-blue-500 transition-colors">سياسة الخصوصية</a>
             </div>
           </div>
         </div>
@@ -730,7 +722,7 @@ export default function App() {
         }}
       />
 
-      {/* Checkout Modal with Order Persistence */}
+      {/* Checkout Modal */}
       <CheckoutModal
         isOpen={isCheckoutOpen}
         items={cart}

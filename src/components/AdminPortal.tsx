@@ -27,6 +27,7 @@ import {
 import { Product, StoreSettings, StoredOrder } from '../types';
 import { INITIAL_CATEGORIES } from '../data/defaultProducts';
 import { ImagePickerField } from './ImagePickerField';
+import { supabase } from '../lib/supabaseClient'; // تأكد من أن مسار ملف supabaseClient صحيح في مشروعك
 
 interface AdminPortalProps {
   settings: StoreSettings;
@@ -61,6 +62,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
   const [loginError, setLoginError] = useState(false);
   const [activeTab, setActiveTab] = useState<'products' | 'categories' | 'orders' | 'settings'>('products');
   const [savedToast, setSavedToast] = useState(false);
+  const [isSavingToDb, setIsSavingToDb] = useState(false);
 
   // Local editing states
   const [editingSettings, setEditingSettings] = useState<StoreSettings>({
@@ -101,10 +103,70 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
     setTimeout(() => setSavedToast(false), 2500);
   };
 
-  const handleSaveAll = () => {
-    onSaveSettings(editingSettings);
-    onSaveProducts(localProducts);
-    triggerSaveNotification();
+  // حفظ جميع التعديلات ومزامنتها مع Supabase
+  const handleSaveAll = async () => {
+    setIsSavingToDb(true);
+    try {
+      // 1. تحديث أو إدراج إعدادات المتجر في Supabase
+      const { error: settingsError } = await supabase
+        .from('store_settings')
+        .upsert({
+          id: 1,
+          store_name: editingSettings.storeName,
+          store_tagline: editingSettings.storeTagline,
+          announcement: editingSettings.announcement,
+          phone_number: editingSettings.phoneNumber,
+          whatsapp_number: editingSettings.whatsappNumber,
+          currency: editingSettings.currency,
+          free_shipping_threshold: Number(editingSettings.freeShippingThreshold) || 0,
+          logo_url: editingSettings.logoUrl,
+          banner_url: editingSettings.bannerUrl,
+          categories: currentCategories,
+          admin_pin: editingSettings.adminPin || '1234',
+        });
+
+      if (settingsError) {
+        console.error('Error saving settings:', settingsError);
+      }
+
+      // 2. مزامنة المنتجات المعدلة مع جدول products
+      if (localProducts.length > 0) {
+        const formattedProducts = localProducts.map((p) => ({
+          id: p.id,
+          name: p.name,
+          category: p.category,
+          price: Number(p.price) || 0,
+          original_price: p.originalPrice ? Number(p.originalPrice) : null,
+          description: p.description || '',
+          features: p.features || [],
+          image: p.image && !p.image.startsWith('/src/')
+            ? p.image
+            : 'https://images.unsplash.com/photo-1517336714731-489689fd1ca8?auto=format&fit=crop&w=800&q=80',
+          in_stock: p.inStock ?? true,
+          rating: p.rating ?? 5.0,
+          reviews_count: p.reviewsCount ?? 0,
+          badge: p.badge || null,
+        }));
+
+        const { error: productsError } = await supabase
+          .from('products')
+          .upsert(formattedProducts);
+
+        if (productsError) {
+          alert('حدث خطأ أثناء مزامنة المنتجات مع قاعدة البيانات: ' + productsError.message);
+          setIsSavingToDb(false);
+          return;
+        }
+      }
+
+      onSaveSettings(editingSettings);
+      onSaveProducts(localProducts);
+      triggerSaveNotification();
+    } catch (err: any) {
+      alert('حدث خطأ غير متوقع: ' + err.message);
+    } finally {
+      setIsSavingToDb(false);
+    }
   };
 
   const handleLoginFormSubmit = (e: React.FormEvent) => {
@@ -125,35 +187,80 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
     );
   };
 
-  const handleDeleteProduct = (id: string) => {
+  const handleDeleteProduct = async (id: string) => {
     if (confirm('هل أنت متأكد من حذف هذا المنتج نهائياً؟')) {
-      setLocalProducts((prev) => prev.filter((p) => p.id !== id));
+      const { error } = await supabase.from('products').delete().eq('id', id);
+      if (error) {
+        alert('تعذر حذف المنتج من قاعدة البيانات: ' + error.message);
+        return;
+      }
+      const updated = localProducts.filter((p) => p.id !== id);
+      setLocalProducts(updated);
+      onSaveProducts(updated);
       if (editingProductId === id) setEditingProductId(null);
+      triggerSaveNotification();
     }
   };
 
-  const handleAddNewProduct = () => {
+  const handleAddNewProduct = async () => {
     if (!newProduct.name?.trim()) {
       alert('يرجى كتابة اسم المنتج');
       return;
     }
 
-    const created: Product = {
-      id: `prod-${Date.now()}`,
+    setIsSavingToDb(true);
+    const validImage =
+      newProduct.image && !newProduct.image.startsWith('/src/')
+        ? newProduct.image
+        : 'https://images.unsplash.com/photo-1517336714731-489689fd1ca8?auto=format&fit=crop&w=800&q=80';
+
+    const newId = `prod-${Date.now()}`;
+
+    // البيانات بصيغة أعمدة جدول Supabase
+    const dbPayload = {
+      id: newId,
       name: newProduct.name.trim(),
       category: newProduct.category || currentCategories[0] || 'عام',
       price: Number(newProduct.price) || 100,
-      originalPrice: newProduct.originalPrice ? Number(newProduct.originalPrice) : undefined,
+      original_price: newProduct.originalPrice ? Number(newProduct.originalPrice) : null,
       description: newProduct.description || 'منتج عالي الجودة معتمد من ELSAWY STORE.',
       features: newProduct.features || ['منتج فرز أول أصلي', 'توصيل وضمان حقيقي'],
-      image: newProduct.image || '/src/assets/images/laptop_business_dell_1794498745461.jpg',
-      inStock: newProduct.inStock ?? true,
+      image: validImage,
+      in_stock: newProduct.inStock ?? true,
       badge: newProduct.badge || 'جديد',
+      rating: 5.0,
+      reviews_count: 1,
+    };
+
+    // الإرسال الفوري لقاعدة بيانات Supabase
+    const { error } = await supabase.from('products').insert([dbPayload]);
+
+    setIsSavingToDb(false);
+
+    if (error) {
+      alert('فشل حفظ المنتج في Supabase: ' + error.message);
+      return;
+    }
+
+    // تحديث الواجهة المحلية وتمرير المنتج للـ App
+    const createdForState: Product = {
+      id: newId,
+      name: dbPayload.name,
+      category: dbPayload.category,
+      price: dbPayload.price,
+      originalPrice: dbPayload.original_price ?? undefined,
+      description: dbPayload.description,
+      features: dbPayload.features,
+      image: validImage,
+      inStock: dbPayload.in_stock,
+      badge: dbPayload.badge,
       rating: 5.0,
       reviewsCount: 1,
     };
 
-    setLocalProducts([created, ...localProducts]);
+    const updatedList = [createdForState, ...localProducts];
+    setLocalProducts(updatedList);
+    onSaveProducts(updatedList);
     setIsAddingProduct(false);
     setNewProduct({
       name: '',
@@ -165,6 +272,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
       inStock: true,
       badge: 'جديد',
     });
+    triggerSaveNotification();
   };
 
   // Category Operations
@@ -233,7 +341,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
     setEditingSettings((prev) => ({ ...prev, adminPin: newPin }));
     setNewPin('');
     setConfirmPin('');
-    alert('تم تغيير الرقم السري للوحة الإدارة بنجاح! تذكر الرقم الجديد عند تسجيل الدخول القادم.');
+    alert('تم تغيير الرقم السري للوحة الإدارة بنجاح! تذكر الضغط على "حفظ التعديلات" بالأعلى لتثبيته.');
   };
 
   /* 
@@ -337,7 +445,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
       {savedToast && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 py-3 px-5 rounded-2xl bg-emerald-600 text-white text-sm font-bold shadow-2xl animate-fade-in">
           <Check className="w-4 h-4" />
-          <span>تم حفظ جميع التعديلات بنجاح!</span>
+          <span>تم الحفظ والمزامنة في قاعدة البيانات بنجاح!</span>
         </div>
       )}
 
@@ -383,10 +491,11 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
             {/* Save all changes button */}
             <button
               onClick={handleSaveAll}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm font-bold shadow-sm transition-all active:scale-98 cursor-pointer"
+              disabled={isSavingToDb}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-xs sm:text-sm font-bold shadow-sm transition-all active:scale-98 cursor-pointer"
             >
               <Save className="w-4 h-4" />
-              <span>حفظ التعديلات</span>
+              <span>{isSavingToDb ? 'جاري الحفظ...' : 'حفظ التعديلات'}</span>
             </button>
 
             {/* Logout */}
@@ -585,7 +694,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
 
                 {/* Direct Image Picker with Upload */}
                 <ImagePickerField
-                  label="صورة المنتج (رفع من هاتفك أو جهازك أو اختيار صورة جاهزة)"
+                  label="صورة المنتج (أدخل رابط صورة مباشر أو اختر من الصور الجاهزة)"
                   value={newProduct.image || ''}
                   onChange={(img) => setNewProduct({ ...newProduct, image: img })}
                 />
@@ -612,9 +721,10 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                   </button>
                   <button
                     onClick={handleAddNewProduct}
-                    className="px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-md cursor-pointer"
+                    disabled={isSavingToDb}
+                    className="px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-xs font-bold shadow-md cursor-pointer"
                   >
-                    حفظ وإضافة المنتج
+                    {isSavingToDb ? 'جاري الإضافة...' : 'حفظ وإضافة المنتج'}
                   </button>
                 </div>
               </div>
