@@ -85,14 +85,14 @@ export const Header: React.FC<HeaderProps> = ({
         {/* Action Zone */}
         <div className="flex items-center gap-2 sm:gap-3 shrink-0">
           {/* Share Link Button (user request: فتح الرابط على أي متصفح) */}
-          <button
+          {/* <button
             onClick={onOpenShare}
             className="flex items-center gap-1.5 px-3 py-2 text-xs sm:text-sm font-semibold rounded-lg bg-amber-500/10 text-amber-700 dark:text-amber-400 hover:bg-amber-500/20 border border-amber-500/20 transition-all cursor-pointer"
             title="مشاركة رابط المتجر وفتحه على أي متصفح"
           >
             <Share2 className="w-4 h-4" />
             <span className="hidden sm:inline">مشاركة الرابط</span>
-          </button>
+          </button> */}
 
           {/* Admin Portal Button - shown ONLY to logged-in admin */}
           {isAdmin && onGoToAdmin && (
