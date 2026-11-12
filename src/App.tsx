@@ -123,7 +123,7 @@ export default function App() {
   };
 
   const handleAdminLogin = (pin: string): boolean => {
-    const validPin = settings.adminPin || '1234';
+    const validPin = settings.adminPin || '1982';
     if (pin.trim() === validPin.trim()) {
       setIsAdminAuthenticated(true);
       sessionStorage.setItem(STORAGE_KEY_ADMIN_AUTH, 'true');
