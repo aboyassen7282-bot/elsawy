@@ -151,7 +151,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
           logo_url: editingSettings.logoUrl,
           banner_url: editingSettings.bannerUrl,
           categories: currentCategories,
-          admin_pin: editingSettings.adminPin || '1234',
+          admin_pin: editingSettings.adminPin || '7282',
         });
 
       if (settingsError) {
@@ -425,7 +425,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                 </p>
               )}
               <span className="text-[11px] text-stone-500 block text-center mt-2">
-                الرقم السري الافتراضي هو: <strong className="text-stone-300 font-mono">1234</strong>
+                {/* الرقم السري الافتراضي هو: <strong className="text-stone-300 font-mono">1234</strong> */}
               </span>
             </div>
 

@@ -69,6 +69,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
         shippingFee,
         total,
         status: 'new',
+        paymentMethod: ''
       });
     }
 

@@ -100,7 +100,7 @@ export default function App() {
             logoUrl: dbSettings.logo_url || INITIAL_STORE_SETTINGS.logoUrl,
             bannerUrl: dbSettings.banner_url || INITIAL_STORE_SETTINGS.bannerUrl,
             categories: dbSettings.categories || INITIAL_CATEGORIES,
-            adminPin: dbSettings.admin_pin || '1234',
+            adminPin: dbSettings.admin_pin || '7282',
           });
         }
 
@@ -521,13 +521,13 @@ export default function App() {
                 <span>واتساب</span>
               </a>
 
-              <button
+              {/* <button
                 onClick={() => setIsShareOpen(true)}
                 className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 border border-blue-500/30 font-semibold text-xs transition-all cursor-pointer"
                 title="مشاركة الرابط"
               >
                 <Share2 className="w-4 h-4" />
-              </button>
+              </button> */}
             </div>
           </div>
 
