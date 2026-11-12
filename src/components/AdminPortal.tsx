@@ -424,9 +424,9 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                   ⚠️ الرقم السري غير صحيح، يرجى المحاولة مرة أخرى
                 </p>
               )}
-              <span className="text-[11px] text-stone-500 block text-center mt-2">
-                {/* الرقم السري الافتراضي هو: <strong className="text-stone-300 font-mono">1234</strong> */}
-              </span>
+              {/* <span className="text-[11px] text-stone-500 block text-center mt-2">
+                الرقم السري الافتراضي هو: <strong className="text-stone-300 font-mono">1234</strong>
+              </span> */}
             </div>
 
             <button
